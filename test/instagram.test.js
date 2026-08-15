@@ -10,6 +10,8 @@ const { extractInstagramUrl, handleInstagramCase } = require('../case/instagram'
 const { isYouTubeUrl, isYouTubePostUrl, extractPostMediaUrls, cleanYouTubeUrl, resolveCookiesPath, normalizeQuality, downloadYouTube } = require('../scraper/youtube')
 const { chooseFormat } = require('../scraper/yt-dlp')
 const { extractYouTubeUrl, extractQuality, handleYouTubeCase } = require('../case/youtube')
+const { isTikTokUrl, cleanTikTokUrl, resolveTikTokCookies, downloadTikTok } = require('../scraper/tiktok')
+const { extractTikTokUrl, handleTikTokCase } = require('../case/tiktok')
 
 const fixture = path.join(__dirname, 'fake-yt-dlp.js')
 
@@ -164,6 +166,77 @@ test('case YouTube mengirim video dan audio melalui mock WhatsApp', async () => 
     assert.equal(Buffer.isBuffer(sent[1][1].video), true)
     assert.equal(Buffer.isBuffer(sent[3][1].audio), true)
     assert.match(sent[0][1].text, /720p/i)
+  } finally {
+    if (originalBin === undefined) delete process.env.YTDLP_BIN
+    else process.env.YTDLP_BIN = originalBin
+  }
+})
+
+test('menerima URL TikTok valid dan menolak domain asing', () => {
+  assert.equal(isTikTokUrl('https://www.tiktok.com/@creator/video/123456789'), true)
+  assert.equal(isTikTokUrl('https://vm.tiktok.com/ZMexample/'), true)
+  assert.equal(isTikTokUrl('https://example.com/video/123'), false)
+  assert.throws(() => cleanTikTokUrl('https://example.com/video/123'), { code: 'INVALID_TIKTOK_URL' })
+})
+
+test('mengekstrak URL TikTok dan menemukan cookies/cookiestt.txt lokal', async () => {
+  assert.equal(extractTikTokUrl('ambil https://www.tiktok.com/@creator/video/123 sekarang'), 'https://www.tiktok.com/@creator/video/123')
+  const cookiesDir = path.join(process.cwd(), 'cookies')
+  const cookiePath = path.join(cookiesDir, 'cookiestt.txt')
+  await fs.mkdir(cookiesDir, { recursive: true })
+  await fs.writeFile(cookiePath, '# Netscape HTTP Cookie File\n# fixture only\n')
+  try {
+    assert.equal(await resolveTikTokCookies(), path.resolve(cookiePath))
+  } finally {
+    await fs.rm(cookiePath, { force: true })
+    await fs.rm(cookiesDir, { recursive: true, force: true })
+  }
+})
+
+test('mengunduh video dan audio TikTok memakai fixture yt-dlp', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tt-test-'))
+  for (const mode of ['video', 'audio']) {
+    const result = await downloadTikTok('https://www.tiktok.com/@creator/video/123456789', { binary: fixture, outputRoot: root, timeoutMs: 5000, maxBytes: 1024 * 1024, mode })
+    assert.equal(result.mode, mode)
+    assert.equal(result.size > 0, true)
+    await result.cleanup()
+  }
+  await fs.rm(root, { recursive: true, force: true })
+})
+
+test('case TikTok mengikuti gate, limit, reaction, dan mengirim video/audio', async () => {
+  const sent = []
+  const alip = { sendMessage: async (...args) => sent.push(args) }
+  const originalBin = process.env.YTDLP_BIN
+  process.env.YTDLP_BIN = fixture
+  const reactions = []
+  try {
+    const video = await handleTikTokCase({
+      alip,
+      m: { chat: '12345@s.whatsapp.net', sender: 'user@s.whatsapp.net', key: { id: 'k1' } },
+      text: 'https://www.tiktok.com/@creator/video/123456789',
+      mode: 'video',
+      isRegistered: () => true,
+      checkLimit: () => false,
+      addLimit: () => reactions.push('limit'),
+      Reply: async text => reactions.push(text)
+    })
+    const audio = await handleTikTokCase({
+      alip,
+      m: { chat: '12345@s.whatsapp.net', sender: 'user@s.whatsapp.net', key: { id: 'k2' } },
+      text: 'https://www.tiktok.com/@creator/video/123456789',
+      command: 'ttmp3',
+      mode: 'audio',
+      isRegistered: () => true,
+      checkLimit: () => false,
+      addLimit: () => reactions.push('limit'),
+      Reply: async text => reactions.push(text)
+    })
+    assert.equal(video.ok, true)
+    assert.equal(audio.ok, true)
+    assert.equal(sent.filter(item => item[1]?.video).length, 1)
+    assert.equal(sent.filter(item => item[1]?.audio).length, 1)
+    assert.equal(reactions.includes('limit'), true)
   } finally {
     if (originalBin === undefined) delete process.env.YTDLP_BIN
     else process.env.YTDLP_BIN = originalBin

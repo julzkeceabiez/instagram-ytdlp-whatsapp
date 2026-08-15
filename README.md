@@ -136,3 +136,71 @@ yt-dlp --yes-playlist --flat-playlist --playlist-end 3 --simulate 'https://www.y
 ## Troubleshooting
 
 Jika muncul pesan `yt-dlp belum terpasang`, pastikan binary berada di `PATH` atau set `YTDLP_BIN` ke path absolut. Jika YouTube meminta login atau video dibatasi usia, pastikan `library/cookies.txt` berasal dari akun Anda sendiri, belum kedaluwarsa, dan permission-nya `600`. Jika ukuran media terlalu besar untuk WhatsApp, turunkan format atau naikkan batas hanya jika server dan kebijakan pengiriman Anda mengizinkan.
+
+## Integrasi TikTok
+
+Scraper TikTok menggunakan `yt-dlp` dan mengikuti pola handler yang sama dengan fitur Instagram dan YouTube. Handler menerima dependency gate dari bot utama sehingga struktur `isRegistered`, `isCreator`, `checkLimit`, `addLimit`, `Reply`, reaction, status proses, pengiriman media, dan cleanup tetap kompatibel dengan pola case yang diberikan.
+
+Letakkan cookies TikTok yang sah hanya di server lokal:
+
+```bash
+mkdir -p cookies
+cp /path/aman/cookies-tiktok.txt cookies/cookiestt.txt
+chmod 600 cookies/cookiestt.txt
+```
+
+File `cookies/cookiestt.txt` otomatis diabaikan Git. Alternatifnya, gunakan `TIKTOK_COOKIES=/path/aman/cookies-tiktok.txt`. Jangan commit atau membagikan cookies karena isinya setara dengan kredensial sesi.
+
+Tambahkan handler pada dispatcher bot:
+
+```js
+const { handleTikTokCase } = require('./case/tiktok')
+
+case 'tt':
+case 'tiktok': {
+  return handleTikTokCase({
+    alip,
+    m,
+    text,
+    args,
+    prefix,
+    command,
+    isRegistered,
+    isCreator,
+    isPremium: global.isPrem?.(m.sender) || false,
+    checkLimit,
+    addLimit,
+    Reply,
+    example
+  })
+}
+
+case 'ttmp3':
+case 'ttaudio': {
+  return handleTikTokCase({
+    alip,
+    m,
+    text,
+    args,
+    prefix,
+    command,
+    mode: 'audio',
+    isRegistered,
+    isCreator,
+    isPremium: global.isPrem?.(m.sender) || false,
+    checkLimit,
+    addLimit,
+    Reply,
+    example
+  })
+}
+```
+
+Contoh command:
+
+```text
+.tt https://www.tiktok.com/@username/video/VIDEO_ID
+.ttmp3 https://www.tiktok.com/@username/video/VIDEO_ID
+```
+
+Pengujian TikTok menggunakan fixture lokal sehingga tidak mengakses akun atau cookies asli. Jalankan `npm run syntax` dan `npm test` sebelum deployment. Dukungan aktual mengikuti extractor TikTok pada versi `yt-dlp` yang terpasang; scraper tidak melewati CAPTCHA, DRM, pembatasan akun, atau konten privat.
