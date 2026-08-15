@@ -39,6 +39,16 @@ async function resolveTikTokCookies(options = {}) {
   }
 }
 
+function detectTikTokMediaType(info = {}) {
+  const serialized = JSON.stringify(info).toLowerCase()
+  if (info.live_photo === true || info.is_live_photo === true || info.media_type === 'live_photo' || /live[_ -]?photo/.test(serialized)) return 'live_photo'
+  const duration = Number(info.duration)
+  const hasPhotoSignals = info.ext === 'jpg' || info.ext === 'jpeg' || info.ext === 'png' || (Array.isArray(info.thumbnails) && info.thumbnails.length > 0)
+  if (duration === 0 && hasPhotoSignals) return 'photo'
+  if (info.live_status === 'is_live' || info.is_live === true) return 'live_video'
+  return 'video'
+}
+
 function normalizeError(error) {
   if (error?.code === 'YTDLP_START_FAILED') return new Error('yt-dlp belum terpasang atau tidak ditemukan di PATH server')
   if (error?.code === 'YTDLP_TIMEOUT') return new Error('Download TikTok timeout. Coba lagi dengan media yang lebih kecil')
@@ -56,7 +66,7 @@ async function createRequestDir(root) {
 
 async function downloadTikTok(input, options = {}) {
   const url = cleanTikTokUrl(input)
-  const mode = options.mode === 'audio' || options.audio ? 'audio' : 'video'
+  const requestedMode = options.mode === 'audio' || options.audio ? 'audio' : options.mode === 'photo' ? 'photo' : 'video'
   const root = options.outputRoot || process.env.TIKTOK_TMP_DIR || path.join(process.cwd(), 'tmp', 'tiktok')
   const outputDir = await createRequestDir(root)
   const cookies = await resolveTikTokCookies(options)
@@ -72,13 +82,25 @@ async function downloadTikTok(input, options = {}) {
   }
 
   try {
+    let info
+    let detectedType = requestedMode
+    if (options.autoDetect && requestedMode === 'video') {
+      info = await ytdlp.getInfo(url, common)
+      detectedType = detectTikTokMediaType(info)
+    }
+    const mode = detectedType === 'photo' || detectedType === 'live_photo' ? 'photo' : requestedMode
     const result = mode === 'audio'
       ? await ytdlp.downloadAudio(url, { ...common, audioFormat: options.audioFormat || 'mp3' })
-      : await ytdlp.downloadVideo(url, common)
+      : mode === 'photo'
+        ? await ytdlp.downloadPhoto(url, common)
+        : await ytdlp.downloadVideo(url, common)
     return {
       ...result,
       sourceUrl: url,
       mode,
+      mediaType: detectedType,
+      detected: Boolean(options.autoDetect),
+      info: result.info || info,
       filename: path.basename(result.path),
       cookiesPath: cookies,
       cleanup: async () => fs.rm(outputDir, { recursive: true, force: true })
@@ -105,5 +127,6 @@ module.exports = {
   resolveTikTokCookies,
   downloadTikTok,
   downloadTikTokVideo,
-  downloadTikTokAudio
+  downloadTikTokAudio,
+  detectTikTokMediaType
 }

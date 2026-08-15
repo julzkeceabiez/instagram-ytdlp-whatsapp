@@ -10,7 +10,7 @@ const { extractInstagramUrl, handleInstagramCase } = require('../case/instagram'
 const { isYouTubeUrl, isYouTubePostUrl, extractPostMediaUrls, cleanYouTubeUrl, resolveCookiesPath, normalizeQuality, downloadYouTube } = require('../scraper/youtube')
 const { chooseFormat } = require('../scraper/yt-dlp')
 const { extractYouTubeUrl, extractQuality, handleYouTubeCase } = require('../case/youtube')
-const { isTikTokUrl, cleanTikTokUrl, resolveTikTokCookies, downloadTikTok } = require('../scraper/tiktok')
+const { isTikTokUrl, cleanTikTokUrl, resolveTikTokCookies, detectTikTokMediaType, downloadTikTok } = require('../scraper/tiktok')
 const { extractTikTokUrl, handleTikTokCase } = require('../case/tiktok')
 
 const fixture = path.join(__dirname, 'fake-yt-dlp.js')
@@ -172,6 +172,13 @@ test('case YouTube mengirim video dan audio melalui mock WhatsApp', async () => 
   }
 })
 
+test('mendeteksi video, foto, foto live, dan live video TikTok', () => {
+  assert.equal(detectTikTokMediaType({ duration: 12, ext: 'mp4' }), 'video')
+  assert.equal(detectTikTokMediaType({ duration: 0, ext: 'jpg', thumbnails: [{}] }), 'photo')
+  assert.equal(detectTikTokMediaType({ media_type: 'live_photo', duration: 0 }), 'live_photo')
+  assert.equal(detectTikTokMediaType({ is_live: true, duration: 0 }), 'live_video')
+})
+
 test('menerima URL TikTok valid dan menolak domain asing', () => {
   assert.equal(isTikTokUrl('https://www.tiktok.com/@creator/video/123456789'), true)
   assert.equal(isTikTokUrl('https://vm.tiktok.com/ZMexample/'), true)
@@ -216,6 +223,7 @@ test('case TikTok mengikuti gate, limit, reaction, dan mengirim video/audio', as
       m: { chat: '12345@s.whatsapp.net', sender: 'user@s.whatsapp.net', key: { id: 'k1' } },
       text: 'https://www.tiktok.com/@creator/video/123456789',
       mode: 'video',
+      autoDetect: false,
       isRegistered: () => true,
       checkLimit: () => false,
       addLimit: () => reactions.push('limit'),
@@ -227,6 +235,7 @@ test('case TikTok mengikuti gate, limit, reaction, dan mengirim video/audio', as
       text: 'https://www.tiktok.com/@creator/video/123456789',
       command: 'ttmp3',
       mode: 'audio',
+      autoDetect: false,
       isRegistered: () => true,
       checkLimit: () => false,
       addLimit: () => reactions.push('limit'),

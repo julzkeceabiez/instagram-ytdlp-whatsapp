@@ -49,7 +49,8 @@ async function handleTikTokCase({
   args,
   prefix = '.',
   command = 'tiktok',
-  mode = /^(ttmp3|ttaudio|tiktokmp3)$/i.test(command) ? 'audio' : 'video',
+  mode = /^(ttmp3|ttaudio|tiktokmp3)$/i.test(command) ? 'audio' : /^(ttfoto|ttphoto|tiktokfoto)$/i.test(command) ? 'photo' : 'video',
+  autoDetect = true,
   isRegistered = () => true,
   isCreator = false,
   isPremium = false,
@@ -79,23 +80,26 @@ async function handleTikTokCase({
   }
 
   await react(alip, m, '🕖')
-  await sendReply({ Reply, alip, m, text: `⏳ Sedang mengunduh TikTok ${mode === 'audio' ? 'audio' : 'video'}...` })
+  await sendReply({ Reply, alip, m, text: `⏳ Sedang mengunduh TikTok ${mode === 'audio' ? 'audio' : mode === 'photo' ? 'foto' : 'media'}...` })
   let result
   try {
-    result = await downloadTikTok(url, { mode, cookies, maxBytes, timeoutMs })
+    result = await downloadTikTok(url, { mode, autoDetect: autoDetect && mode === 'video', cookies, maxBytes, timeoutMs })
     if (typeof addLimit === 'function') addLimit(m.sender, isPremium, isCreator)
     const files = Array.isArray(result.files) && result.files.length ? result.files : [{ path: result.path, size: result.size }]
     for (const [index, item] of files.entries()) {
       const buffer = await fs.readFile(item.path)
       const filename = path.basename(item.path)
       const caption = captionFor(result, index, files.length)
-      const payload = mode === 'audio'
+      const effectiveMode = result.mode || mode
+      const payload = effectiveMode === 'audio'
         ? { audio: buffer, mimetype: 'audio/mpeg', fileName: filename, ptt: false }
-        : { video: buffer, mimetype: 'video/mp4', fileName: filename, caption }
+        : effectiveMode === 'photo'
+          ? { image: buffer, mimetype: item.mimetype || 'image/jpeg', fileName: filename, caption }
+          : { video: buffer, mimetype: 'video/mp4', fileName: filename, caption }
       await alip.sendMessage(m.chat, payload, { quoted: m })
     }
     await react(alip, m, '✅')
-    return { ok: true, mode, files: result.files, path: result.path, id: result.id }
+    return { ok: true, mode: result.mode || mode, mediaType: result.mediaType || mode, files: result.files, path: result.path, id: result.id }
   } catch (error) {
     await react(alip, m, '❌')
     await sendReply({ Reply, alip, m, text: `❌ ${error.message || 'Gagal mengunduh TikTok.'}` })

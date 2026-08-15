@@ -204,3 +204,15 @@ Contoh command:
 ```
 
 Pengujian TikTok menggunakan fixture lokal sehingga tidak mengakses akun atau cookies asli. Jalankan `npm run syntax` dan `npm test` sebelum deployment. Dukungan aktual mengikuti extractor TikTok pada versi `yt-dlp` yang terpasang; scraper tidak melewati CAPTCHA, DRM, pembatasan akun, atau konten privat.
+
+### Mode media TikTok dan deteksi otomatis
+
+Handler TikTok mendukung tiga mode pengiriman. Mode `video` mengirim video MP4, mode `audio` menggunakan `yt-dlp` dan FFmpeg untuk mengekstrak MP3, sedangkan mode `photo` mengirim hasil gambar sebagai `image` WhatsApp. Jika `autoDetect` aktif, metadata yt-dlp diperiksa terlebih dahulu untuk membedakan `video`, `photo`/slideshow, `live_photo`, dan `live_video`.
+
+```text
+.tt https://www.tiktok.com/@username/video/VIDEO_ID
+.ttmp3 https://www.tiktok.com/@username/video/VIDEO_ID
+.ttfoto https://www.tiktok.com/@username/video/VIDEO_ID
+```
+
+Untuk mengaktifkan deteksi pada case, gunakan `autoDetect: true` atau biarkan nilai default handler. Deteksi `photo` bergantung pada metadata yang dikembalikan extractor TikTok; handler tidak mengklaim dapat mengubah video biasa menjadi foto atau melewati pembatasan platform. Untuk mode audio, pastikan FFmpeg tersedia di server.
