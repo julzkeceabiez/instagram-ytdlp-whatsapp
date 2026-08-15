@@ -50,8 +50,9 @@ function normalizeError(error) {
   return new Error(`Download Instagram gagal: ${message.slice(-500)}`)
 }
 
-async function downloadInstagram(input, options = {}) {
+async function downloadInstagramMedia(input, options = {}) {
   const url = cleanInstagramUrl(input)
+  const mode = options.mode === 'photo' ? 'photo' : 'video'
   const root = options.outputRoot || process.env.INSTAGRAM_TMP_DIR || path.join(process.cwd(), 'tmp', 'instagram')
   const outputDir = await createRequestDir(root)
   const maxBytes = Number(options.maxBytes || process.env.INSTAGRAM_MAX_BYTES || DEFAULT_MAX_BYTES)
@@ -65,10 +66,13 @@ async function downloadInstagram(input, options = {}) {
   }
 
   try {
-    const result = await ytdlp.downloadVideo(url, ytdlpOptions)
+    const result = mode === 'photo'
+      ? await ytdlp.downloadPhoto(url, ytdlpOptions)
+      : await ytdlp.downloadVideo(url, ytdlpOptions)
     return {
       ...result,
       sourceUrl: url,
+      mode,
       filename: path.basename(result.path),
       cleanup: async () => fs.rm(outputDir, { recursive: true, force: true })
     }
@@ -83,12 +87,15 @@ async function removeTemporaryFile(result) {
   if (result?.path) return fs.rm(result.path, { force: true }).catch(() => {})
 }
 
+const downloadInstagram = downloadInstagramMedia
+
 module.exports = {
   INSTAGRAM_HOSTS,
   DEFAULT_MAX_BYTES,
   isInstagramUrl,
   cleanInstagramUrl,
   downloadInstagram,
+  downloadInstagramMedia,
   removeTemporaryFile,
   requestId: () => crypto.randomUUID()
 }

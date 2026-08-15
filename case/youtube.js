@@ -17,6 +17,11 @@ function friendlyError(error) {
   return error?.message || 'Download YouTube gagal. Coba lagi nanti.'
 }
 
+function extractQuality(text = '') {
+  const match = String(text).match(/\b(144|240|360|480|720|1080|1440|2160)\s*p?\b/i)
+  return match ? Number(match[1]) : undefined
+}
+
 /**
  * Handler case YouTube.
  *
@@ -30,11 +35,13 @@ function friendlyError(error) {
  * case 'ytaudio':
  *   return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'audio' })
  */
-async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 'ytmp4', mode = 'video' }) {
+async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 'ytmp4', mode = 'video', quality }) {
+  mode = mode === 'audio' ? 'audio' : 'video'
   if (!alip?.sendMessage || !m?.chat) throw new TypeError('alip dan m.chat wajib tersedia')
 
   const input = getCommandText({ text, args })
   const url = extractYouTubeUrl(input)
+  const selectedQuality = quality || extractQuality(input)
   if (!url) {
     const example = mode === 'audio' ? 'ytmp3' : 'ytmp4'
     await alip.sendMessage(m.chat, {
@@ -44,12 +51,12 @@ async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 
   }
 
   await alip.sendMessage(m.chat, {
-    text: `⏳ Sedang mengunduh YouTube (${mode === 'audio' ? 'audio' : 'video'})...`
+      text: `⏳ Sedang mengunduh YouTube (${mode === 'audio' ? 'audio' : `video${selectedQuality ? ` ${selectedQuality}p` : ''}`})...`
   }, { quoted: m })
 
   let result
   try {
-    result = await downloadYouTube(url, { mode })
+    result = await downloadYouTube(url, { mode, quality: selectedQuality })
     const buffer = await fs.readFile(result.path)
     const payload = mode === 'audio'
       ? {
@@ -74,4 +81,4 @@ async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 
   }
 }
 
-module.exports = { extractYouTubeUrl, getCommandText, handleYouTubeCase }
+module.exports = { extractYouTubeUrl, extractQuality, getCommandText, handleYouTubeCase }

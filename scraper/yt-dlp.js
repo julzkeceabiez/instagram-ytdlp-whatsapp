@@ -99,7 +99,12 @@ async function getInfo(url, options = {}) {
 function chooseFormat(mode, options = {}) {
   if (options.format) return String(options.format)
   if (mode === 'audio') return 'ba/b'
-  return 'bv*+ba/b'
+  if (mode === 'photo') return 'best[ext=jpg]/best[ext=jpeg]/best[ext=png]/best'
+  const quality = Number(options.quality)
+  if (Number.isFinite(quality) && quality > 0) {
+    return `bv*[height<=${Math.floor(quality)}][ext=mp4]+ba[ext=m4a]/b[height<=${Math.floor(quality)}][ext=mp4]/b[height<=${Math.floor(quality)}]/b`
+  }
+  return 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b'
 }
 
 function safeLimitBytes(value) {
@@ -123,7 +128,7 @@ async function findDownloadedFile(directory, before = new Set()) {
 
 async function download(url, options = {}) {
   const target = cleanUrl(url)
-  const mode = options.mode === 'audio' || options.audio ? 'audio' : 'video'
+  const mode = ['audio', 'photo', 'video'].includes(options.mode) ? options.mode : (options.audio ? 'audio' : 'video')
   const outputDir = path.resolve(options.outputDir || path.join(process.cwd(), 'tmp', 'yt-dlp'))
   await fs.mkdir(outputDir, { recursive: true })
   const before = new Set((await fs.readdir(outputDir, { withFileTypes: true }))
@@ -137,7 +142,7 @@ async function download(url, options = {}) {
     '--max-filesize', `${Math.floor(safeLimitBytes(options.maxBytes) / 1024 / 1024)}M`
   ]
   if (mode === 'audio') args.push('--extract-audio', '--audio-format', options.audioFormat || 'mp3', '--audio-quality', options.audioQuality || '0')
-  else args.push('--merge-output-format', options.container || 'mp4')
+  else if (mode === 'video') args.push('--merge-output-format', options.container || 'mp4')
   args.push(target)
 
   const result = await run(resolveBinary(options), args, options)
@@ -165,4 +170,8 @@ async function downloadAudio(url, options = {}) {
 async function downloadVideo(url, options = {}) {
   return download(url, { ...options, mode: 'video' })
 }
-module.exports = { getInfo, download, downloadAudio, downloadVideo, cleanUrl, run }
+
+async function downloadPhoto(url, options = {}) {
+  return download(url, { ...options, mode: 'photo' })
+}
+module.exports = { getInfo, download, downloadAudio, downloadVideo, downloadPhoto, cleanUrl, run, chooseFormat }

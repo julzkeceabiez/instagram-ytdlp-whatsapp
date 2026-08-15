@@ -55,14 +55,12 @@ Kemudian pada switch command:
 case 'ig':
 case 'igdl':
 case 'instagram': {
-  return handleInstagramCase({
-    alip,
-    m,
-    text,
-    args,
-    prefix,
-    command
-  })
+  return handleInstagramCase({ alip, m, text, args, prefix, command, mode: 'video' })
+}
+
+case 'igfoto':
+case 'igphoto': {
+  return handleInstagramCase({ alip, m, text, args, prefix, command, mode: 'photo' })
 }
 ```
 
@@ -88,9 +86,15 @@ Contoh penggunaan:
 
 ```text
 .ig https://www.instagram.com/reel/XXXXXXXXXXX/
-.ytmp4 https://www.youtube.com/watch?v=VIDEO_ID
+.igfoto https://www.instagram.com/p/XXXXXXXXXXX/
+.ytmp4 720p https://www.youtube.com/watch?v=VIDEO_ID
+.ytmp4 1080 https://www.youtube.com/watch?v=VIDEO_ID
 .ytmp3 https://youtu.be/VIDEO_ID
 ```
+
+## Pilihan kualitas dan tipe media
+
+YouTube video mendukung kualitas maksimum `144p`, `240p`, `360p`, `480p`, `720p`, `1080p`, `1440p`, dan `2160p`. Format kualitas ditulis sebelum atau sesudah URL, misalnya `.ytmp4 720p URL`. Jika kualitas yang diminta tidak tersedia, yt-dlp memilih fallback yang tersedia sampai batas tersebut. Command `.ytmp3` mengirim audio MP3, `.ig` mengirim video Instagram, dan `.igfoto` mengirim foto Instagram sebagai image WhatsApp.
 
 ## Fitur keamanan dan stabilitas
 

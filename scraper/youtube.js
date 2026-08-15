@@ -6,6 +6,7 @@ const ytdlp = require('./yt-dlp')
 
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'])
 const DEFAULT_MAX_BYTES = 95 * 1024 * 1024
+const ALLOWED_QUALITIES = new Set([144, 240, 360, 480, 720, 1080, 1440, 2160])
 
 function isYouTubeUrl(value) {
   try {
@@ -61,9 +62,16 @@ async function resolveCookiesPath(options = {}) {
   }
 }
 
+function normalizeQuality(value) {
+  if (value === undefined || value === null || value === '') return undefined
+  const quality = Number(value)
+  return ALLOWED_QUALITIES.has(quality) ? quality : undefined
+}
+
 async function downloadYouTube(input, options = {}) {
   const url = cleanYouTubeUrl(input)
   const mode = options.mode === 'audio' || options.audio ? 'audio' : 'video'
+  const quality = normalizeQuality(options.quality)
   const root = options.outputRoot || process.env.YOUTUBE_TMP_DIR || path.join(process.cwd(), 'tmp', 'youtube')
   const outputDir = await createRequestDir(root)
   const maxBytes = Number(options.maxBytes || process.env.YOUTUBE_MAX_BYTES || DEFAULT_MAX_BYTES)
@@ -74,7 +82,8 @@ async function downloadYouTube(input, options = {}) {
     outputDir,
     maxBytes: Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : DEFAULT_MAX_BYTES,
     timeoutMs: options.timeoutMs || Number(process.env.YOUTUBE_TIMEOUT_MS) || 180000,
-    format: options.format || (mode === 'audio' ? 'bestaudio/best' : 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b'),
+    ...(quality ? { quality } : {}),
+    format: options.format,
     container: 'mp4'
   }
 
@@ -98,7 +107,9 @@ async function downloadYouTube(input, options = {}) {
 module.exports = {
   YOUTUBE_HOSTS,
   DEFAULT_MAX_BYTES,
+  ALLOWED_QUALITIES,
   isYouTubeUrl,
+  normalizeQuality,
   cleanYouTubeUrl,
   resolveCookiesPath,
   downloadYouTube
