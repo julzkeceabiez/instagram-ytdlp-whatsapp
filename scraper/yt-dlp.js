@@ -76,12 +76,15 @@ function run(binary, args, options = {}) {
 }
 
 function baseArgs(options = {}) {
-  const args = ['--ignore-config', '--no-warnings', '--no-playlist', '--restrict-filenames', '--newline']
+  const args = ['--ignore-config', '--no-warnings', options.playlist ? '--yes-playlist' : '--no-playlist', '--restrict-filenames', '--newline']
   if (options.cookies) args.push('--cookies', path.resolve(options.cookies))
   else if (process.env.YTDLP_COOKIES) args.push('--cookies', path.resolve(process.env.YTDLP_COOKIES))
   if (options.proxy) args.push('--proxy', String(options.proxy))
   if (options.userAgent) args.push('--user-agent', String(options.userAgent))
   if (options.referer) args.push('--referer', String(options.referer))
+  if (options.playlistItems) args.push('--playlist-items', String(options.playlistItems))
+  if (options.maxItems) args.push('--playlist-end', String(Math.max(1, Math.floor(Number(options.maxItems)))))
+  if (options.liveFromStart) args.push('--live-from-start')
   if (options.extractorArgs) args.push('--extractor-args', String(options.extractorArgs))
   return args
 }
@@ -100,9 +103,11 @@ function chooseFormat(mode, options = {}) {
   if (options.format) return String(options.format)
   if (mode === 'audio') return 'ba/b'
   if (mode === 'photo') return 'best[ext=jpg]/best[ext=jpeg]/best[ext=png]/best'
-  const quality = Number(options.quality)
-  if (Number.isFinite(quality) && quality > 0) {
-    return `bv*[height<=${Math.floor(quality)}][ext=mp4]+ba[ext=m4a]/b[height<=${Math.floor(quality)}][ext=mp4]/b[height<=${Math.floor(quality)}]/b`
+  const quality = String(options.quality || 'best').toLowerCase()
+  if (quality === 'worst' || quality === 'low') return 'wv*+ba/w'
+  if (quality === 'best' || quality === 'max' || quality === 'highest') return 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b'
+  if (/^\d+$/.test(quality) && Number(quality) > 0) {
+    return `bv*[height<=${Math.floor(Number(quality))}]+ba/b[height<=${Math.floor(Number(quality))}]/b`
   }
   return 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b'
 }
@@ -112,7 +117,7 @@ function safeLimitBytes(value) {
   return Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_MAX_BYTES
 }
 
-async function findDownloadedFile(directory, before = new Set()) {
+async function findDownloadedFiles(directory, before = new Set()) {
   const entries = await fs.readdir(directory, { withFileTypes: true })
   const files = []
   for (const entry of entries) {
@@ -120,10 +125,14 @@ async function findDownloadedFile(directory, before = new Set()) {
     const full = path.join(directory, entry.name)
     if (!before.has(full)) files.push(full)
   }
-  if (!files.length) return null
   const stats = await Promise.all(files.map(async file => ({ file, stat: await fs.stat(file) })))
-  stats.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)
-  return stats[0].file
+  stats.sort((a, b) => a.stat.mtimeMs - b.stat.mtimeMs)
+  return stats.map(item => item.file)
+}
+
+async function findDownloadedFile(directory, before = new Set()) {
+  const files = await findDownloadedFiles(directory, before)
+  return files.at(-1) || null
 }
 
 async function download(url, options = {}) {
@@ -146,12 +155,13 @@ async function download(url, options = {}) {
   args.push(target)
 
   const result = await run(resolveBinary(options), args, options)
-  const file = await findDownloadedFile(outputDir, before)
-  if (!file) throw new Error('yt-dlp selesai tetapi file hasil tidak ditemukan')
-  const stat = await fs.stat(file)
+  const files = await findDownloadedFiles(outputDir, before)
+  if (!files.length) throw new Error('yt-dlp selesai tetapi file hasil tidak ditemukan')
   const maxBytes = safeLimitBytes(options.maxBytes)
-  if (stat.size > maxBytes) {
-    await fs.rm(file, { force: true })
+  const fileStats = await Promise.all(files.map(async file => ({ file, stat: await fs.stat(file) })))
+  const oversized = fileStats.filter(item => item.stat.size > maxBytes)
+  if (oversized.length) {
+    await Promise.all(oversized.map(item => fs.rm(item.file, { force: true })))
     const error = new Error(`File melebihi batas ${maxBytes} bytes`)
     error.code = 'YTDLP_FILE_TOO_LARGE'
     throw error
@@ -160,7 +170,16 @@ async function download(url, options = {}) {
   let info = null
   const records = parseJsonLines(result.stdout)
   if (records.length) info = records.at(-1)
-  return { path: file, size: stat.size, mode, title: info?.title || path.basename(file), id: info?.id || null, info }
+  const primary = fileStats[0]
+  return {
+    path: primary.file,
+    size: primary.stat.size,
+    files: fileStats.map(item => ({ path: item.file, size: item.stat.size })),
+    mode,
+    title: info?.title || path.basename(primary.file),
+    id: info?.id || null,
+    info
+  }
 }
 
 async function downloadAudio(url, options = {}) {
@@ -174,4 +193,4 @@ async function downloadVideo(url, options = {}) {
 async function downloadPhoto(url, options = {}) {
   return download(url, { ...options, mode: 'photo' })
 }
-module.exports = { getInfo, download, downloadAudio, downloadVideo, downloadPhoto, cleanUrl, run, chooseFormat }
+module.exports = { getInfo, download, downloadAudio, downloadVideo, downloadPhoto, cleanUrl, run, chooseFormat, findDownloadedFiles }

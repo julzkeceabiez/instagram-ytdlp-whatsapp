@@ -8,6 +8,7 @@ const os = require('node:os')
 const { isInstagramUrl, cleanInstagramUrl, downloadInstagram, downloadInstagramMedia } = require('../scraper/instagram')
 const { extractInstagramUrl, handleInstagramCase } = require('../case/instagram')
 const { isYouTubeUrl, cleanYouTubeUrl, resolveCookiesPath, normalizeQuality, downloadYouTube } = require('../scraper/youtube')
+const { chooseFormat } = require('../scraper/yt-dlp')
 const { extractYouTubeUrl, extractQuality, handleYouTubeCase } = require('../case/youtube')
 
 const fixture = path.join(__dirname, 'fake-yt-dlp.js')
@@ -83,6 +84,11 @@ test('menerima URL YouTube yang valid dan menolak domain asing', () => {
   assert.equal(isYouTubeUrl('https://www.youtube.com/watch?v=abc123'), true)
   assert.equal(isYouTubeUrl('https://youtu.be/abc123'), true)
   assert.equal(isYouTubeUrl('https://www.youtube.com/shorts/abc123'), true)
+  assert.equal(isYouTubeUrl('https://www.youtube.com/live/abc123'), true)
+  assert.equal(isYouTubeUrl('https://www.youtube.com/clip/abc123'), true)
+  assert.equal(isYouTubeUrl('https://www.youtube.com/playlist?list=abc123'), true)
+  assert.equal(isYouTubeUrl('https://music.youtube.com/watch?v=abc123'), true)
+  assert.equal(isYouTubeUrl('https://www.youtube.com/@creator'), true)
   assert.equal(isYouTubeUrl('https://example.com/watch?v=abc123'), false)
   assert.throws(() => cleanYouTubeUrl('https://example.com/watch?v=abc123'), { code: 'INVALID_YOUTUBE_URL' })
 })
@@ -93,7 +99,13 @@ test('mengekstrak URL YouTube dan pilihan kualitas', () => {
   assert.equal(extractQuality('720p https://youtu.be/abc123'), 720)
   assert.equal(extractQuality('https://youtu.be/abc123 1080'), 1080)
   assert.equal(normalizeQuality(720), 720)
-  assert.equal(normalizeQuality(999), undefined)
+  assert.equal(normalizeQuality(999), 999)
+})
+
+test('memilih format dinamis untuk best, worst, dan kualitas numerik', () => {
+  assert.match(chooseFormat('video', { quality: 'best' }), /bv\*/)
+  assert.match(chooseFormat('video', { quality: 'worst' }), /wv\*/)
+  assert.match(chooseFormat('video', { quality: 720 }), /height<=720/)
 })
 
 test('mendeteksi library/cookies.txt secara lokal tanpa membaca nilainya', async () => {
@@ -118,6 +130,14 @@ test('mengunduh video dan audio YouTube memakai fixture yt-dlp', async () => {
     await fs.access(result.path)
     await result.cleanup()
   }
+  await fs.rm(root, { recursive: true, force: true })
+})
+
+test('download all playlist mengembalikan beberapa file', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'yt-playlist-test-'))
+  const result = await downloadYouTube('https://www.youtube.com/playlist?list=FIXTURE', { binary: fixture, outputRoot: root, timeoutMs: 5000, maxBytes: 1024 * 1024, playlist: true, maxItems: 3 })
+  assert.equal(result.files.length, 3)
+  await result.cleanup()
   await fs.rm(root, { recursive: true, force: true })
 })
 

@@ -13,7 +13,14 @@ if (args.includes('--dump-single-json')) {
 const outputIndex = args.indexOf('--output')
 if (outputIndex < 0) process.exit(2)
 const pattern = args[outputIndex + 1]
-const output = pattern.replace('%(title).180B', 'Fixture Reel').replace('%(id)s', 'fixture123').replace('%(ext)s', 'mp4')
-fs.mkdirSync(path.dirname(output), { recursive: true })
-fs.writeFileSync(output, Buffer.from('fixture video bytes'))
-process.stdout.write(JSON.stringify({ id: 'fixture123', title: 'Fixture Reel', ext: 'mp4' }) + '\n')
+const playlist = args.includes('--yes-playlist')
+const count = playlist ? 3 : 1
+fs.mkdirSync(path.dirname(pattern), { recursive: true })
+for (let index = 1; index <= count; index += 1) {
+  const output = pattern
+    .replace('%(title).180B', `Fixture Item ${index}`)
+    .replace('%(id)s', `fixture${index}`)
+    .replace('%(ext)s', args.includes('--extract-audio') ? 'mp3' : 'mp4')
+  fs.writeFileSync(output, Buffer.from(`fixture media bytes ${index}`))
+}
+process.stdout.write(JSON.stringify({ id: 'fixture123', title: 'Fixture Item', ext: 'mp4' }) + '\n')

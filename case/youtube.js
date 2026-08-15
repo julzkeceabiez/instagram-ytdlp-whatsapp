@@ -18,8 +18,12 @@ function friendlyError(error) {
 }
 
 function extractQuality(text = '') {
-  const match = String(text).match(/\b(144|240|360|480|720|1080|1440|2160)\s*p?\b/i)
+  const match = String(text).match(/\b(\d{2,4})\s*p?\b/i)
   return match ? Number(match[1]) : undefined
+}
+
+function hasPlaylistFlag(text = '') {
+  return /(^|\s)(--?all|all|playlist|ytall)(?=\s|$)/i.test(String(text))
 }
 
 /**
@@ -35,44 +39,39 @@ function extractQuality(text = '') {
  * case 'ytaudio':
  *   return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'audio' })
  */
-async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 'ytmp4', mode = 'video', quality }) {
+async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 'ytmp4', mode = 'video', quality, playlist = false, maxItems = 20, liveFromStart = false }) {
   mode = mode === 'audio' ? 'audio' : 'video'
   if (!alip?.sendMessage || !m?.chat) throw new TypeError('alip dan m.chat wajib tersedia')
 
   const input = getCommandText({ text, args })
   const url = extractYouTubeUrl(input)
-  const selectedQuality = quality || extractQuality(input)
+  const selectedQuality = quality || extractQuality(input) || 'best'
+  const selectedPlaylist = Boolean(playlist || hasPlaylistFlag(input) || /^(ytall|ytplaylist)$/i.test(command))
   if (!url) {
     const example = mode === 'audio' ? 'ytmp3' : 'ytmp4'
     await alip.sendMessage(m.chat, {
-      text: `Format: ${prefix}${command} https://youtu.be/VIDEO_ID\nContoh audio: ${prefix}${example} https://youtu.be/VIDEO_ID`
+      text: `Format: ${prefix}${command} [kualitas] https://youtu.be/VIDEO_ID\nContoh: ${prefix}ytmp4 720p https://youtu.be/VIDEO_ID\nPlaylist: ${prefix}ytall https://www.youtube.com/playlist?list=...`
     }, { quoted: m })
     return { ok: false, code: 'MISSING_URL' }
   }
 
   await alip.sendMessage(m.chat, {
-      text: `⏳ Sedang mengunduh YouTube (${mode === 'audio' ? 'audio' : `video${selectedQuality ? ` ${selectedQuality}p` : ''}`})...`
+      text: `⏳ Sedang mengunduh YouTube (${mode === 'audio' ? 'audio' : `video ${/^\d+$/.test(String(selectedQuality)) ? `${selectedQuality}p` : selectedQuality}`}${selectedPlaylist ? ', playlist' : ''})...`
   }, { quoted: m })
 
   let result
   try {
-    result = await downloadYouTube(url, { mode, quality: selectedQuality })
-    const buffer = await fs.readFile(result.path)
-    const payload = mode === 'audio'
-      ? {
-          audio: buffer,
-          mimetype: 'audio/mpeg',
-          fileName: result.filename,
-          ptt: false
-        }
-      : {
-          video: buffer,
-          mimetype: 'video/mp4',
-          fileName: result.filename,
-          caption: `✅ YouTube Downloader\n${result.title || 'Video YouTube'}\n\nSumber: ${result.sourceUrl}`.slice(0, 1024)
-        }
-    await alip.sendMessage(m.chat, payload, { quoted: m })
-    return { ok: true, path: result.path, id: result.id, mode }
+    result = await downloadYouTube(url, { mode, quality: selectedQuality, playlist: selectedPlaylist, maxItems, liveFromStart })
+    const files = Array.isArray(result.files) && result.files.length ? result.files : [{ path: result.path, size: result.size }]
+    for (const [index, item] of files.entries()) {
+      const buffer = await fs.readFile(item.path)
+      const caption = `✅ YouTube Downloader${files.length > 1 ? ` (${index + 1}/${files.length})` : ''}\n${result.title || 'Media YouTube'}\n\nSumber: ${result.sourceUrl}`.slice(0, 1024)
+      const payload = mode === 'audio'
+        ? { audio: buffer, mimetype: 'audio/mpeg', fileName: item.path.split('/').pop(), ptt: false }
+        : { video: buffer, mimetype: 'video/mp4', fileName: item.path.split('/').pop(), caption }
+      await alip.sendMessage(m.chat, payload, { quoted: m })
+    }
+    return { ok: true, path: result.path, files: result.files, id: result.id, mode, playlist: selectedPlaylist }
   } catch (error) {
     await alip.sendMessage(m.chat, { text: `❌ ${friendlyError(error)}` }, { quoted: m })
     return { ok: false, code: error?.code || 'DOWNLOAD_FAILED', error }
@@ -81,4 +80,4 @@ async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 
   }
 }
 
-module.exports = { extractYouTubeUrl, extractQuality, getCommandText, handleYouTubeCase }
+module.exports = { extractYouTubeUrl, extractQuality, hasPlaylistFlag, getCommandText, handleYouTubeCase }

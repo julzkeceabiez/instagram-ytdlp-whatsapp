@@ -15,7 +15,11 @@ function isYouTubeUrl(value) {
     const host = url.hostname.toLowerCase()
     if (!YOUTUBE_HOSTS.has(host)) return false
     if (host === 'youtu.be') return url.pathname.length > 1
-    return Boolean(url.searchParams.get('v') || /^\/(shorts|live|embed|watch)\//i.test(url.pathname))
+    return Boolean(
+      url.searchParams.get('v') ||
+      url.searchParams.get('list') ||
+      /^\/(shorts|live|embed|watch|clip|playlist|channel|c|user|@[^/]+)\b/i.test(url.pathname)
+    )
   } catch {
     return false
   }
@@ -63,9 +67,11 @@ async function resolveCookiesPath(options = {}) {
 }
 
 function normalizeQuality(value) {
-  if (value === undefined || value === null || value === '') return undefined
+  if (value === undefined || value === null || value === '') return 'best'
+  const normalized = String(value).toLowerCase()
+  if (['best', 'max', 'highest', 'worst', 'low'].includes(normalized)) return normalized
   const quality = Number(value)
-  return ALLOWED_QUALITIES.has(quality) ? quality : undefined
+  return Number.isFinite(quality) && quality > 0 ? Math.floor(quality) : 'best'
 }
 
 async function downloadYouTube(input, options = {}) {
@@ -82,8 +88,12 @@ async function downloadYouTube(input, options = {}) {
     outputDir,
     maxBytes: Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : DEFAULT_MAX_BYTES,
     timeoutMs: options.timeoutMs || Number(process.env.YOUTUBE_TIMEOUT_MS) || 180000,
-    ...(quality ? { quality } : {}),
+    quality,
     format: options.format,
+    playlist: Boolean(options.playlist),
+    playlistItems: options.playlistItems,
+    maxItems: options.maxItems || (options.playlist ? 20 : undefined),
+    liveFromStart: Boolean(options.liveFromStart),
     container: 'mp4'
   }
 

@@ -80,6 +80,11 @@ case 'ytmp3':
 case 'ytaudio': {
   return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'audio' })
 }
+
+case 'ytall':
+case 'ytplaylist': {
+  return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'video', playlist: true, maxItems: 20 })
+}
 ```
 
 Contoh penggunaan:
@@ -90,11 +95,18 @@ Contoh penggunaan:
 .ytmp4 720p https://www.youtube.com/watch?v=VIDEO_ID
 .ytmp4 1080 https://www.youtube.com/watch?v=VIDEO_ID
 .ytmp3 https://youtu.be/VIDEO_ID
+.ytall https://www.youtube.com/playlist?list=PLAYLIST_ID
 ```
 
-## Pilihan kualitas dan tipe media
+## Dukungan tipe URL, playlist, dan kualitas
 
-YouTube video mendukung kualitas maksimum `144p`, `240p`, `360p`, `480p`, `720p`, `1080p`, `1440p`, dan `2160p`. Format kualitas ditulis sebelum atau sesudah URL, misalnya `.ytmp4 720p URL`. Jika kualitas yang diminta tidak tersedia, yt-dlp memilih fallback yang tersedia sampai batas tersebut. Command `.ytmp3` mengirim audio MP3, `.ig` mengirim video Instagram, dan `.igfoto` mengirim foto Instagram sebagai image WhatsApp.
+Scraper menerima video YouTube biasa, Shorts, live atau replay, URL `youtu.be`, embed, clip, playlist, channel, handle `@`, YouTube Music, dan bentuk URL YouTube lain yang dapat dikenali oleh extractor `yt-dlp`. Dukungan aktual tetap mengikuti extractor dan kebijakan akses YouTube; scraper tidak melewati CAPTCHA, DRM, login, atau pembatasan akun.
+
+`ytmp4` mengunduh satu video. `ytall` atau `ytplaylist` mengaktifkan playlist dengan batas default 20 item agar bot tidak mengirim ratusan file tanpa sengaja. Batas tersebut dapat diubah melalui parameter `maxItems` pada integrasi case. Mode `ytmp3` mengekstrak audio MP3. Live yang sedang berlangsung dapat memerlukan waktu hingga selesai atau konfigurasi live khusus; replay yang sudah tersedia diproses seperti video biasa.
+
+Pemilihan kualitas bersifat dinamis: gunakan `best`, `worst`, atau angka resolusi positif seperti `144p`, `360p`, `720p`, `1080p`, `1440p`, dan `2160p`. Angka tidak lagi dibatasi pada daftar hardcoded; `yt-dlp` memilih format yang tersedia sampai tinggi maksimum yang diminta. Contoh: `.ytmp4 720p URL`, `.ytmp4 best URL`, atau `.ytmp4 worst URL`. Jika format terpisah membutuhkan penggabungan audio-video, FFmpeg harus tersedia.
+
+Command `.ytmp3` mengirim audio MP3, `.ig` mengirim video Instagram, dan `.igfoto` mengirim foto Instagram sebagai image WhatsApp.
 
 ## Fitur keamanan dan stabilitas
 
@@ -113,6 +125,7 @@ Test suite menggunakan fixture lokal, sehingga tidak mengakses Instagram nyata d
 yt-dlp --version
 yt-dlp --no-playlist --simulate 'https://www.instagram.com/reel/URL_PUBLIK/'
 yt-dlp --no-playlist --simulate --cookies library/cookies.txt 'https://www.youtube.com/watch?v=URL_PUBLIK'
+yt-dlp --yes-playlist --flat-playlist --playlist-end 3 --simulate 'https://www.youtube.com/playlist?list=URL_PUBLIK'
 ```
 
 ## Troubleshooting
