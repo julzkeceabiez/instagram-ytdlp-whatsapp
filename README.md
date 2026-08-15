@@ -216,3 +216,15 @@ Handler TikTok mendukung tiga mode pengiriman. Mode `video` mengirim video MP4, 
 ```
 
 Untuk mengaktifkan deteksi pada case, gunakan `autoDetect: true` atau biarkan nilai default handler. Deteksi `photo` bergantung pada metadata yang dikembalikan extractor TikTok; handler tidak mengklaim dapat mengubah video biasa menjadi foto atau melewati pembatasan platform. Untuk mode audio, pastikan FFmpeg tersedia di server.
+
+### TikTok Photo dan error 403
+
+URL TikTok dengan pola `/photo/` tidak dipaksa melalui extractor video `yt-dlp`. Scraper mengenalinya sebagai Photo Post, mengambil aset gambar yang tersedia dari halaman TikTok, mengirimnya sebagai `image`, dan membersihkan file temporary setelah selesai. Jumlah gambar dibatasi melalui `maxItems` agar bot tidak mengirim media tanpa batas.
+
+Jika TikTok mengembalikan 403, scraper melakukan retry terbatas dan menampilkan pesan yang mengarahkan pengguna untuk memperbarui cookies yang sah. Satu proxy tepercaya dapat diberikan kepada `yt-dlp` melalui environment variable, tanpa rotasi proxy:
+
+```bash
+export TIKTOK_PROXY='http://user:password@proxy-host:port'
+```
+
+Jangan memasukkan proxy, username, password, atau cookies ke source code, log, commit, atau URL Raw. Retry dan proxy tidak melewati CAPTCHA, login, konten privat, DRM, atau pembatasan platform.

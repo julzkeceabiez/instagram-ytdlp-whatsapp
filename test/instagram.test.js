@@ -10,7 +10,7 @@ const { extractInstagramUrl, handleInstagramCase } = require('../case/instagram'
 const { isYouTubeUrl, isYouTubePostUrl, extractPostMediaUrls, cleanYouTubeUrl, resolveCookiesPath, normalizeQuality, downloadYouTube } = require('../scraper/youtube')
 const { chooseFormat } = require('../scraper/yt-dlp')
 const { extractYouTubeUrl, extractQuality, handleYouTubeCase } = require('../case/youtube')
-const { isTikTokUrl, cleanTikTokUrl, resolveTikTokCookies, detectTikTokMediaType, downloadTikTok } = require('../scraper/tiktok')
+const { isTikTokUrl, isTikTokPhotoUrl, extractTikTokPhotoMediaUrls, cleanTikTokUrl, resolveTikTokCookies, detectTikTokMediaType, downloadTikTok } = require('../scraper/tiktok')
 const { extractTikTokUrl, handleTikTokCase } = require('../case/tiktok')
 
 const fixture = path.join(__dirname, 'fake-yt-dlp.js')
@@ -170,6 +170,12 @@ test('case YouTube mengirim video dan audio melalui mock WhatsApp', async () => 
     if (originalBin === undefined) delete process.env.YTDLP_BIN
     else process.env.YTDLP_BIN = originalBin
   }
+})
+
+test('mendeteksi URL photo TikTok dan mengekstrak beberapa aset gambar', () => {
+  assert.equal(isTikTokPhotoUrl('https://www.tiktok.com/@creator/photo/123456789'), true)
+  const html = '<img src="https://p16.muscdn.com/img/musically-maliva-obj/asset-one~noop.webp"><img src="https://p16.muscdn.com/img/musically-maliva-obj/asset-two~noop.webp">'
+  assert.equal(extractTikTokPhotoMediaUrls(html).length, 2)
 })
 
 test('mendeteksi video, foto, foto live, dan live video TikTok', () => {
