@@ -228,3 +228,7 @@ export TIKTOK_PROXY='http://user:password@proxy-host:port'
 ```
 
 Jangan memasukkan proxy, username, password, atau cookies ke source code, log, commit, atau URL Raw. Retry dan proxy tidak melewati CAPTCHA, login, konten privat, DRM, atau pembatasan platform.
+
+### Catatan patch untuk deployment lama
+
+Jika log masih menampilkan urutan `Scraper yt-dlp gagal` lalu `Mencoba fallback TikWM`, server masih menjalankan handler lama dan belum memakai `case/tiktok.js` terbaru. Salin kedua file berikut ke server dengan struktur yang sama, lalu arahkan case `tt`/`tiktok` ke `handleTikTokCase`: `scraper/tiktok.js` dan `case/tiktok.js`. URL `/photo/` akan dipaksa ke mode foto sebelum `yt-dlp` dipanggil, sehingga tidak lagi menghasilkan `Unsupported URL` dari extractor video.

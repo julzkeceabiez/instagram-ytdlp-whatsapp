@@ -2,7 +2,7 @@
 
 const fs = require('node:fs/promises')
 const path = require('node:path')
-const { downloadTikTok } = require('../scraper/tiktok')
+const { downloadTikTok, isTikTokPhotoUrl } = require('../scraper/tiktok')
 
 function getCommandText({ text = '', args = [] } = {}) {
   if (Array.isArray(args) && args.length) return args.join(' ').trim()
@@ -83,7 +83,9 @@ async function handleTikTokCase({
   await sendReply({ Reply, alip, m, text: `⏳ Sedang mengunduh TikTok ${mode === 'audio' ? 'audio' : mode === 'photo' ? 'foto' : 'media'}...` })
   let result
   try {
-    result = await downloadTikTok(url, { mode, autoDetect: autoDetect && mode === 'video', cookies, maxBytes, timeoutMs })
+    const photoPost = isTikTokPhotoUrl(url)
+    const requestedMode = photoPost ? 'photo' : mode
+    result = await downloadTikTok(url, { mode: requestedMode, autoDetect: autoDetect && !photoPost && requestedMode === 'video', cookies, maxBytes, timeoutMs })
     if (typeof addLimit === 'function') addLimit(m.sender, isPremium, isCreator)
     const files = Array.isArray(result.files) && result.files.length ? result.files : [{ path: result.path, size: result.size }]
     for (const [index, item] of files.entries()) {
@@ -99,7 +101,7 @@ async function handleTikTokCase({
       await alip.sendMessage(m.chat, payload, { quoted: m })
     }
     await react(alip, m, '✅')
-    return { ok: true, mode: result.mode || mode, mediaType: result.mediaType || mode, files: result.files, path: result.path, id: result.id }
+    return { ok: true, mode: result.mode || requestedMode, mediaType: result.mediaType || requestedMode, files: result.files, path: result.path, id: result.id }
   } catch (error) {
     await react(alip, m, '❌')
     await sendReply({ Reply, alip, m, text: `❌ ${error.message || 'Gagal mengunduh TikTok.'}` })
