@@ -7,6 +7,7 @@ const ytdlp = require('./yt-dlp')
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'])
 const DEFAULT_MAX_BYTES = 95 * 1024 * 1024
 const ALLOWED_QUALITIES = new Set([144, 240, 360, 480, 720, 1080, 1440, 2160])
+const POST_PATH_RE = /^\/post\/[^/]+/i
 
 function isYouTubeUrl(value) {
   try {
@@ -18,8 +19,18 @@ function isYouTubeUrl(value) {
     return Boolean(
       url.searchParams.get('v') ||
       url.searchParams.get('list') ||
+      POST_PATH_RE.test(url.pathname) ||
       /^\/(shorts|live|embed|watch|clip|playlist|channel|c|user|@[^/]+)\b/i.test(url.pathname)
     )
+  } catch {
+    return false
+  }
+}
+
+function isYouTubePostUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim())
+    return ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(url.hostname.toLowerCase()) && POST_PATH_RE.test(url.pathname)
   } catch {
     return false
   }
@@ -74,8 +85,72 @@ function normalizeQuality(value) {
   return Number.isFinite(quality) && quality > 0 ? Math.floor(quality) : 'best'
 }
 
+function cookieHeaderFromNetscape(content) {
+  return String(content || '').split(/\r?\n/).filter(line => line && !line.startsWith('#')).map(line => line.split('\t')).filter(parts => parts.length >= 7).map(parts => `${parts[5]}=${parts[6]}`).join('; ')
+}
+
+function extractPostMediaUrls(html) {
+  const decoded = String(html || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&').replace(/\\\//g, '/')
+  const matches = decoded.match(/https?:\/\/[^"'<>\s]+/g) || []
+  const candidates = matches.map(value => value.replace(/[),.]+$/, '')).filter(value => /(?:yt3\.ggpht\.com|yt3\.googleusercontent\.com)/i.test(value) && /=[sw](?:[6-9]\d{2}|[1-9]\d{3})/i.test(value))
+  const bestByAsset = new Map()
+  for (const value of candidates) {
+    const sizeMatch = value.match(/=[sw](\d{3,})/i)
+    const size = sizeMatch ? Number(sizeMatch[1]) : 0
+    const key = value.replace(/=[sw]\d{3,}[^?]*/i, '').split('?')[0]
+    const current = bestByAsset.get(key)
+    if (!current || size > current.size) bestByAsset.set(key, { value, size })
+  }
+  return [...bestByAsset.values()].sort((a, b) => b.size - a.size).map(item => item.value)
+}
+
+async function downloadYouTubePost(input, options = {}) {
+  if (!isYouTubePostUrl(input)) {
+    const error = new TypeError('URL harus berupa URL YouTube Community Post yang valid')
+    error.code = 'INVALID_YOUTUBE_POST_URL'
+    throw error
+  }
+  const url = String(input).trim()
+  const root = options.outputRoot || process.env.YOUTUBE_TMP_DIR || path.join(process.cwd(), 'tmp', 'youtube')
+  const outputDir = await createRequestDir(root)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 120000)
+  try {
+    let headers = { 'user-agent': options.userAgent || 'Mozilla/5.0' }
+    const cookies = await resolveCookiesPath(options)
+    if (cookies) headers.cookie = cookieHeaderFromNetscape(await fs.readFile(cookies, 'utf8'))
+    const response = await fetch(url, { headers, signal: controller.signal, redirect: 'follow' })
+    if (!response.ok) throw new Error(`Community Post HTTP ${response.status}`)
+    const html = await response.text()
+    const mediaUrls = extractPostMediaUrls(html)
+    if (!mediaUrls.length) throw new Error('Media Community Post tidak ditemukan; post mungkin membutuhkan login atau berubah format')
+    const maxBytes = Number(options.maxBytes || DEFAULT_MAX_BYTES)
+    const files = []
+    for (const [index, mediaUrl] of mediaUrls.slice(0, options.maxItems || 10).entries()) {
+      const mediaResponse = await fetch(mediaUrl, { headers, signal: controller.signal, redirect: 'follow' })
+      if (!mediaResponse.ok) continue
+      const buffer = Buffer.from(await mediaResponse.arrayBuffer())
+      if (buffer.length > maxBytes) throw Object.assign(new Error(`File melebihi batas ${maxBytes} bytes`), { code: 'YTDLP_FILE_TOO_LARGE' })
+      const type = mediaResponse.headers.get('content-type') || 'image/jpeg'
+      const extension = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg'
+      const file = path.join(outputDir, `post-${index + 1}.${extension}`)
+      await fs.writeFile(file, buffer)
+      files.push({ path: file, size: buffer.length, mediaUrl })
+    }
+    if (!files.length) throw new Error('Media Community Post gagal diunduh')
+    return { path: files[0].path, size: files[0].size, files, mode: 'photo', sourceUrl: url, title: 'YouTube Community Post', id: url.split('/post/')[1]?.split(/[?/#]/)[0], filename: path.basename(files[0].path), cleanup: async () => fs.rm(outputDir, { recursive: true, force: true }) }
+  } catch (error) {
+    await fs.rm(outputDir, { recursive: true, force: true }).catch(() => {})
+    if (error?.name === 'AbortError') error = Object.assign(new Error('Download Community Post timeout'), { code: 'YTDLP_TIMEOUT' })
+    throw normalizeError(error)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function downloadYouTube(input, options = {}) {
   const url = cleanYouTubeUrl(input)
+  if (isYouTubePostUrl(url)) return downloadYouTubePost(url, options)
   const mode = options.mode === 'audio' || options.audio ? 'audio' : 'video'
   const quality = normalizeQuality(options.quality)
   const root = options.outputRoot || process.env.YOUTUBE_TMP_DIR || path.join(process.cwd(), 'tmp', 'youtube')
@@ -119,6 +194,9 @@ module.exports = {
   DEFAULT_MAX_BYTES,
   ALLOWED_QUALITIES,
   isYouTubeUrl,
+  isYouTubePostUrl,
+  extractPostMediaUrls,
+  downloadYouTubePost,
   normalizeQuality,
   cleanYouTubeUrl,
   resolveCookiesPath,

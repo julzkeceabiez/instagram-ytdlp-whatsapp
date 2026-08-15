@@ -7,7 +7,7 @@ const path = require('node:path')
 const os = require('node:os')
 const { isInstagramUrl, cleanInstagramUrl, downloadInstagram, downloadInstagramMedia } = require('../scraper/instagram')
 const { extractInstagramUrl, handleInstagramCase } = require('../case/instagram')
-const { isYouTubeUrl, cleanYouTubeUrl, resolveCookiesPath, normalizeQuality, downloadYouTube } = require('../scraper/youtube')
+const { isYouTubeUrl, isYouTubePostUrl, extractPostMediaUrls, cleanYouTubeUrl, resolveCookiesPath, normalizeQuality, downloadYouTube } = require('../scraper/youtube')
 const { chooseFormat } = require('../scraper/yt-dlp')
 const { extractYouTubeUrl, extractQuality, handleYouTubeCase } = require('../case/youtube')
 
@@ -89,8 +89,17 @@ test('menerima URL YouTube yang valid dan menolak domain asing', () => {
   assert.equal(isYouTubeUrl('https://www.youtube.com/playlist?list=abc123'), true)
   assert.equal(isYouTubeUrl('https://music.youtube.com/watch?v=abc123'), true)
   assert.equal(isYouTubeUrl('https://www.youtube.com/@creator'), true)
+  assert.equal(isYouTubeUrl('https://youtube.com/post/UgkxExample'), true)
+  assert.equal(isYouTubePostUrl('https://youtube.com/post/UgkxExample'), true)
   assert.equal(isYouTubeUrl('https://example.com/watch?v=abc123'), false)
   assert.throws(() => cleanYouTubeUrl('https://example.com/watch?v=abc123'), { code: 'INVALID_YOUTUBE_URL' })
+})
+
+test('mengekstrak media Community Post dari HTML tanpa kompresi', () => {
+  const html = '<img src="https://yt3.ggpht.com/example=s640-c-k-c0x00ffffff-no-rj.jpg"><img src="https://yt3.ggpht.com/second=w1280.webp">'
+  const urls = extractPostMediaUrls(html)
+  assert.equal(urls.length, 2)
+  assert.match(urls[0], /yt3\.ggpht\.com/)
 })
 
 test('mengekstrak URL YouTube dan pilihan kualitas', () => {

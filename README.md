@@ -85,6 +85,10 @@ case 'ytall':
 case 'ytplaylist': {
   return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'video', playlist: true, maxItems: 20 })
 }
+
+case 'ytpost': {
+  return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'video', maxItems: 10 })
+}
 ```
 
 Contoh penggunaan:
@@ -96,13 +100,14 @@ Contoh penggunaan:
 .ytmp4 1080 https://www.youtube.com/watch?v=VIDEO_ID
 .ytmp3 https://youtu.be/VIDEO_ID
 .ytall https://www.youtube.com/playlist?list=PLAYLIST_ID
+.ytpost https://www.youtube.com/post/POST_ID
 ```
 
 ## Dukungan tipe URL, playlist, dan kualitas
 
-Scraper menerima video YouTube biasa, Shorts, live atau replay, URL `youtu.be`, embed, clip, playlist, channel, handle `@`, YouTube Music, dan bentuk URL YouTube lain yang dapat dikenali oleh extractor `yt-dlp`. Dukungan aktual tetap mengikuti extractor dan kebijakan akses YouTube; scraper tidak melewati CAPTCHA, DRM, login, atau pembatasan akun.
+Scraper menerima video YouTube biasa, Shorts, live atau replay, URL `youtu.be`, embed, clip, playlist, channel, handle `@`, YouTube Music, serta URL Community Post `/post/...`. Untuk Community Post, scraper mengambil media gambar asli dari halaman dan mengirim bytes asli tanpa resize, re-encode, atau kompresi. Dukungan aktual tetap mengikuti extractor dan kebijakan akses YouTube; scraper tidak melewati CAPTCHA, DRM, login, atau pembatasan akun.
 
-`ytmp4` mengunduh satu video. `ytall` atau `ytplaylist` mengaktifkan playlist dengan batas default 20 item agar bot tidak mengirim ratusan file tanpa sengaja. Batas tersebut dapat diubah melalui parameter `maxItems` pada integrasi case. Mode `ytmp3` mengekstrak audio MP3. Live yang sedang berlangsung dapat memerlukan waktu hingga selesai atau konfigurasi live khusus; replay yang sudah tersedia diproses seperti video biasa.
+`ytmp4` mengunduh satu video. `ytpost` menangani Community Post dan mengirim satu atau beberapa gambar asli. `ytall` atau `ytplaylist` mengaktifkan playlist dengan batas default 20 item agar bot tidak mengirim ratusan file tanpa sengaja. Batas tersebut dapat diubah melalui parameter `maxItems` pada integrasi case. Mode `ytmp3` mengekstrak audio MP3. Live yang sedang berlangsung dapat memerlukan waktu hingga selesai atau konfigurasi live khusus; replay yang sudah tersedia diproses seperti video biasa.
 
 Pemilihan kualitas bersifat dinamis: gunakan `best`, `worst`, atau angka resolusi positif seperti `144p`, `360p`, `720p`, `1080p`, `1440p`, dan `2160p`. Angka tidak lagi dibatasi pada daftar hardcoded; `yt-dlp` memilih format yang tersedia sampai tinggi maksimum yang diminta. Contoh: `.ytmp4 720p URL`, `.ytmp4 best URL`, atau `.ytmp4 worst URL`. Jika format terpisah membutuhkan penggabungan audio-video, FFmpeg harus tersedia.
 

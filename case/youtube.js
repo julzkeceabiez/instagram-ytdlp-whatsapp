@@ -1,6 +1,7 @@
 'use strict'
 
 const fs = require('node:fs/promises')
+const path = require('node:path')
 const { downloadYouTube } = require('../scraper/youtube')
 
 function extractYouTubeUrl(text = '') {
@@ -62,16 +63,20 @@ async function handleYouTubeCase({ alip, m, text, args, prefix = '.', command = 
   let result
   try {
     result = await downloadYouTube(url, { mode, quality: selectedQuality, playlist: selectedPlaylist, maxItems, liveFromStart })
+    const effectiveMode = result.mode || mode
     const files = Array.isArray(result.files) && result.files.length ? result.files : [{ path: result.path, size: result.size }]
     for (const [index, item] of files.entries()) {
       const buffer = await fs.readFile(item.path)
       const caption = `✅ YouTube Downloader${files.length > 1 ? ` (${index + 1}/${files.length})` : ''}\n${result.title || 'Media YouTube'}\n\nSumber: ${result.sourceUrl}`.slice(0, 1024)
-      const payload = mode === 'audio'
-        ? { audio: buffer, mimetype: 'audio/mpeg', fileName: item.path.split('/').pop(), ptt: false }
-        : { video: buffer, mimetype: 'video/mp4', fileName: item.path.split('/').pop(), caption }
+      const filename = path.basename(item.path)
+      const payload = effectiveMode === 'audio'
+        ? { audio: buffer, mimetype: 'audio/mpeg', fileName: filename, ptt: false }
+        : effectiveMode === 'photo'
+          ? { image: buffer, mimetype: 'image/jpeg', fileName: filename, caption }
+          : { video: buffer, mimetype: 'video/mp4', fileName: filename, caption }
       await alip.sendMessage(m.chat, payload, { quoted: m })
     }
-    return { ok: true, path: result.path, files: result.files, id: result.id, mode, playlist: selectedPlaylist }
+    return { ok: true, path: result.path, files: result.files, id: result.id, mode: effectiveMode, playlist: selectedPlaylist }
   } catch (error) {
     await alip.sendMessage(m.chat, { text: `❌ ${friendlyError(error)}` }, { quoted: m })
     return { ok: false, code: error?.code || 'DOWNLOAD_FAILED', error }
