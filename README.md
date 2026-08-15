@@ -1,6 +1,6 @@
 # Instagram Downloader untuk Bot WhatsApp
 
-Downloader Instagram berbasis [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) untuk bot WhatsApp Node.js. Paket ini berisi dua bagian: `scraper/instagram.js` sebagai provider downloader dan `case/instagram.js` sebagai handler command WhatsApp.
+Downloader Instagram dan YouTube berbasis [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) untuk bot WhatsApp Node.js. Paket ini berisi provider `scraper/instagram.js` dan `scraper/youtube.js`, serta handler command `case/instagram.js` dan `case/youtube.js`.
 
 > Gunakan hanya untuk media yang boleh Anda akses dan simpan. Modul ini tidak mengakali akun privat, login, CAPTCHA, DRM, atau pembatasan akses Instagram.
 
@@ -24,14 +24,22 @@ export YTDLP_BIN=yt-dlp
 export INSTAGRAM_TMP_DIR=/tmp/instagram-downloader
 export INSTAGRAM_MAX_BYTES=99614720
 export INSTAGRAM_TIMEOUT_MS=120000
+export YOUTUBE_TMP_DIR=/tmp/youtube-downloader
+export YOUTUBE_MAX_BYTES=99614720
+export YOUTUBE_TIMEOUT_MS=180000
 ```
 
-Untuk konten yang secara sah membutuhkan sesi login, gunakan file cookies lokal yang tidak dimasukkan ke repository:
+Untuk YouTube, letakkan export cookies yang sah di lokasi berikut pada server bot:
 
 ```bash
-export YTDLP_COOKIES=/secure/path/instagram-cookies.txt
-chmod 600 /secure/path/instagram-cookies.txt
+mkdir -p library
+cp /path/aman/cookies-youtube.txt library/cookies.txt
+chmod 600 library/cookies.txt
 ```
+
+Downloader otomatis membaca `library/cookies.txt`. Alternatifnya, Anda dapat mengatur `YTDLP_COOKIES` ke path lain. Jangan pernah commit, mengirim, atau membagikan file ini; cookies sesi harus diperlakukan seperti password.
+
+Untuk Instagram atau deployment lain yang memakai path berbeda, gunakan `YTDLP_COOKIES=/secure/path/cookies.txt`. Semua path cookies bersifat lokal dan tidak dikirim ke repository.
 
 ## Integrasi case
 
@@ -60,15 +68,33 @@ case 'instagram': {
 
 Jika dispatcher Anda tidak menyediakan `args`, cukup kirim `text`. Handler akan mengambil URL pertama dari teks command.
 
+Untuk YouTube, tambahkan pada dispatcher:
+
+```js
+const { handleYouTubeCase } = require('./case/youtube')
+
+case 'ytmp4':
+case 'ytvideo': {
+  return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'video' })
+}
+
+case 'ytmp3':
+case 'ytaudio': {
+  return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'audio' })
+}
+```
+
 Contoh penggunaan:
 
 ```text
 .ig https://www.instagram.com/reel/XXXXXXXXXXX/
+.ytmp4 https://www.youtube.com/watch?v=VIDEO_ID
+.ytmp3 https://youtu.be/VIDEO_ID
 ```
 
 ## Fitur keamanan dan stabilitas
 
-Modul memvalidasi host Instagram, tidak menggunakan `shell: true`, memakai direktori temporary unik per request, menerapkan timeout dan batas ukuran, menghapus file saat selesai, serta tidak menaruh token atau cookies di source code. Default batas media adalah sekitar 95 MB dan dapat diubah melalui `INSTAGRAM_MAX_BYTES`.
+Modul memvalidasi host, tidak menggunakan `shell: true`, memakai direktori temporary unik per request, menerapkan timeout dan batas ukuran, menghapus file saat selesai, serta tidak menaruh token atau isi cookies di source code. YouTube otomatis memakai `library/cookies.txt` bila file tersedia.
 
 ## Pengujian
 
@@ -82,8 +108,9 @@ Test suite menggunakan fixture lokal, sehingga tidak mengakses Instagram nyata d
 ```bash
 yt-dlp --version
 yt-dlp --no-playlist --simulate 'https://www.instagram.com/reel/URL_PUBLIK/'
+yt-dlp --no-playlist --simulate --cookies library/cookies.txt 'https://www.youtube.com/watch?v=URL_PUBLIK'
 ```
 
 ## Troubleshooting
 
-Jika muncul pesan `yt-dlp belum terpasang`, pastikan binary berada di `PATH` atau set `YTDLP_BIN` ke path absolut. Jika Instagram meminta login, jangan memasukkan cookies ke commit; set `YTDLP_COOKIES` ke file lokal dengan permission terbatas. Jika ukuran media terlalu besar untuk WhatsApp, turunkan format atau naikkan batas hanya jika server dan kebijakan pengiriman Anda mengizinkan.
+Jika muncul pesan `yt-dlp belum terpasang`, pastikan binary berada di `PATH` atau set `YTDLP_BIN` ke path absolut. Jika YouTube meminta login atau video dibatasi usia, pastikan `library/cookies.txt` berasal dari akun Anda sendiri, belum kedaluwarsa, dan permission-nya `600`. Jika ukuran media terlalu besar untuk WhatsApp, turunkan format atau naikkan batas hanya jika server dan kebijakan pengiriman Anda mengizinkan.

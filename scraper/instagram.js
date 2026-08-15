@@ -27,8 +27,10 @@ function cleanInstagramUrl(value) {
   return input
 }
 
-function createRequestDir(root = path.join(process.cwd(), 'tmp', 'instagram')) {
-  return fs.mkdtemp(path.join(path.resolve(root), 'request-'))
+async function createRequestDir(root = path.join(process.cwd(), 'tmp', 'instagram')) {
+  const directory = path.resolve(root)
+  await fs.mkdir(directory, { recursive: true })
+  return fs.mkdtemp(path.join(directory, 'request-'))
 }
 
 function normalizeError(error) {
