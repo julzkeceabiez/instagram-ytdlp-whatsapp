@@ -1,0 +1,15 @@
+{
+  "name": "instagram-ytdlp-whatsapp",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Instagram downloader berbasis yt-dlp untuk integrasi bot WhatsApp",
+  "main": "case/instagram.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "syntax": "node --check scraper/yt-dlp.js && node --check scraper/instagram.js && node --check case/instagram.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

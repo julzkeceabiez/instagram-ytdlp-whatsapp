@@ -1,0 +1,32 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Credentials and sessions
+*.cookie
+*.cookies
+*cookies*.txt
+sessions/
+auth_info_baileys/
+auth_info/
+creds.json
+
+# Runtime data
+/tmp/
+tmp/
+*.log
+database/
+contacts-cache.json
+
+# Downloaded media
+*.mp4
+*.mp3
+*.m4a
+*.webm
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.part
+*.ytdl
