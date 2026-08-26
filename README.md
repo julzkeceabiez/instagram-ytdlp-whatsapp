@@ -100,16 +100,15 @@ case 'ytpost': {
   return handleYouTubeCase({ alip, m, text, args, prefix, command, mode: 'video', maxItems: 10 })
 }
 
-const { handlePinterestSearchCase, handlePinterestDownloadCase } = require('./case/pinterest')
+const { handlePinterestCase } = require('./case/pinterest')
 
 case 'pinsearch':
-case 'psearch': {
-  return handlePinterestSearchCase({ alip, m, text, args, prefix, command, limit: 10 })
-}
-
+case 'pinsear':
+case 'psearch':
 case 'pindl':
-case 'pindownload': {
-  return handlePinterestDownloadCase({ alip, m, text, args, prefix, command, maxItems: 10 })
+case 'pindownload':
+case 'pinaudio': {
+  return handlePinterestCase({ alip, m, text, args, command })
 }
 ```
 
@@ -139,7 +138,7 @@ Command `.ytmp3` mengirim audio MP3, `.ig` mengirim video Instagram, dan `.igfot
 
 ## Pinterest Search dan Pin Downloader
 
-Gunakan `.pinsearch kata kunci` untuk mencari pin. Handler mengembalikan URL pin yang ditemukan, kemudian `.pindl URL_PIN` mengunduh media pin sebagai gambar atau video. Jika sebuah pin memiliki beberapa media, semuanya dikirim secara berurutan sampai batas `maxItems`. Media Pinterest dikirim sebagai bytes asli tanpa resize, re-encode, atau kompresi.
+Gunakan `.pinsearch kata kunci` untuk mencari pin. Handler mengembalikan URL pin yang ditemukan, kemudian `.pindl URL_PIN` mengunduh media pin sebagai gambar atau video. Gunakan `.pinaudio URL_PIN` bila extractor dan media pin mendukung ekstraksi audio. Jika sebuah pin memiliki beberapa media, semuanya dikirim secara berurutan sampai batas `maxItems`. Media Pinterest dikirim sebagai bytes asli tanpa resize, re-encode, atau kompresi.
 
 Contoh:
 
