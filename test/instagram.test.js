@@ -12,6 +12,8 @@ const { chooseFormat } = require('../scraper/yt-dlp')
 const { extractYouTubeUrl, extractQuality, handleYouTubeCase } = require('../case/youtube')
 const { isTikTokUrl, isTikTokPhotoUrl, extractTikTokPhotoMediaUrls, cleanTikTokUrl, resolveTikTokCookies, detectTikTokMediaType, downloadTikTok } = require('../scraper/tiktok')
 const { extractTikTokUrl, handleTikTokCase } = require('../case/tiktok')
+const { isPinterestUrl, isPinterestPinUrl, extractPinUrls, resolvePinterestCookies, detectPinterestMode, downloadPinterest } = require('../scraper/pinterest')
+const { extractPinterestUrl, handlePinterestCase } = require('../case/pinterest')
 
 const fixture = path.join(__dirname, 'fake-yt-dlp.js')
 
@@ -183,6 +185,32 @@ test('mendeteksi video, foto, foto live, dan live video TikTok', () => {
   assert.equal(detectTikTokMediaType({ duration: 0, ext: 'jpg', thumbnails: [{}] }), 'photo')
   assert.equal(detectTikTokMediaType({ media_type: 'live_photo', duration: 0 }), 'live_photo')
   assert.equal(detectTikTokMediaType({ is_live: true, duration: 0 }), 'live_video')
+})
+
+test('Pinterest memvalidasi pin, mengekstrak hasil search, dan mendeteksi media', () => {
+  assert.equal(isPinterestUrl('https://www.pinterest.com/pin/123456789/'), true)
+  assert.equal(isPinterestPinUrl('https://www.pinterest.com/pin/123456789/'), true)
+  assert.equal(isPinterestUrl('https://example.com/pin/123'), false)
+  assert.equal(extractPinterestUrl('download https://www.pinterest.com/pin/123456789/'), 'https://www.pinterest.com/pin/123456789/')
+  const html = '<a href="https://www.pinterest.com/pin/123/"></a><a href="https://www.pinterest.com/pin/456/"></a>'
+  assert.equal(extractPinUrls(html).length, 2)
+  assert.equal(resolvePinterestCookies({}).endsWith('cookies/cookiespin.txt'), true)
+  assert.equal(detectPinterestMode({ ext: 'jpg' }), 'photo')
+  assert.equal(detectPinterestMode({ ext: 'mp4', duration: 4 }), 'video')
+})
+
+test('Pinterest dapat mengunduh mode video, audio, dan foto memakai fixture yt-dlp', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pin-test-'))
+  try {
+    for (const mode of ['video', 'audio', 'photo']) {
+      const result = await downloadPinterest('https://www.pinterest.com/pin/123456789/', { binary: fixture, outputRoot: root, timeoutMs: 5000, maxBytes: 1024 * 1024, mode, autoDetect: false })
+      assert.equal(result.mode, mode)
+      assert.equal(result.size > 0, true)
+      await result.cleanup()
+    }
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
+  }
 })
 
 test('menerima URL TikTok valid dan menolak domain asing', () => {

@@ -232,3 +232,28 @@ Jangan memasukkan proxy, username, password, atau cookies ke source code, log, c
 ### Catatan patch untuk deployment lama
 
 Jika log masih menampilkan urutan `Scraper yt-dlp gagal` lalu `Mencoba fallback TikWM`, server masih menjalankan handler lama dan belum memakai `case/tiktok.js` terbaru. Salin kedua file berikut ke server dengan struktur yang sama, lalu arahkan case `tt`/`tiktok` ke `handleTikTokCase`: `scraper/tiktok.js` dan `case/tiktok.js`. URL `/photo/` akan dipaksa ke mode foto sebelum `yt-dlp` dipanggil, sehingga tidak lagi menghasilkan `Unsupported URL` dari extractor video.
+
+### Pinterest downloader
+
+Modul Pinterest menyediakan pencarian pin melalui halaman Pinterest dan pengunduhan pin melalui `yt-dlp`. Cookies lokal dibaca dari `cookies/cookiespin.txt` atau path pada `PINTEREST_COOKIES`; file cookies tidak boleh dipublikasikan.
+
+```text
+.pinsearch wallpaper anime
+.pindl https://www.pinterest.com/pin/123456789/
+.pinaudio https://www.pinterest.com/pin/123456789/
+```
+
+Contoh integrasi:
+
+```js
+const { handlePinterestCase } = require('./case/pinterest')
+
+case 'pinsearch':
+  return handlePinterestCase({ alip, m, text, args, command, isRegistered, isCreator, checkLimit, addLimit, Reply })
+case 'pindl':
+  return handlePinterestCase({ alip, m, text, args, command, mode: 'video', isRegistered, isCreator, checkLimit, addLimit, Reply })
+case 'pinaudio':
+  return handlePinterestCase({ alip, m, text, args, command, mode: 'audio', isRegistered, isCreator, checkLimit, addLimit, Reply })
+```
+
+Mode video dapat mendeteksi hasil gambar melalui metadata `yt-dlp` ketika `autoDetect` aktif. File hasil dikirim sebagai `video`, `audio`, atau `image`, kemudian file temporary dihapus. Dukungan aktual mengikuti extractor `yt-dlp` dan akses Pinterest yang sah; modul tidak melewati CAPTCHA, DRM, akun privat, atau pembatasan platform.
