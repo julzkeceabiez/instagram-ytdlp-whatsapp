@@ -9,6 +9,7 @@ node_modules/
 *cookies*.txt
 library/cookies.txt
 cookies/cookiespin.txt
+cookies/googlecookies.txt
 cookies/
 sessions/
 auth_info_baileys/

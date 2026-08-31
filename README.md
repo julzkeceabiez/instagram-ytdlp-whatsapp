@@ -172,3 +172,28 @@ yt-dlp --yes-playlist --flat-playlist --playlist-end 3 --simulate 'https://www.y
 ## Troubleshooting
 
 Jika muncul pesan `yt-dlp belum terpasang`, pastikan binary berada di `PATH` atau set `YTDLP_BIN` ke path absolut. Jika YouTube meminta login atau video dibatasi usia, pastikan `library/cookies.txt` berasal dari akun Anda sendiri, belum kedaluwarsa, dan permission-nya `600`. Jika ukuran media terlalu besar untuk WhatsApp, turunkan format atau naikkan batas hanya jika server dan kebijakan pengiriman Anda mengizinkan.
+
+### Google Full Scraper
+Modul Google menyediakan pencarian (web, gambar, video), berita, terjemahan, dan saran pencarian tanpa API Key. Cookies dibaca dari `cookies/googlecookies.txt`.
+
+```text
+.google apa itu AI
+.gimage kucing lucu
+.gvideo tutorial nodejs
+.tr id Hello world
+.gnews teknologi
+.gsuggest cara membuat
+```
+
+Contoh integrasi:
+```js
+const { handleGoogleCase } = require('./case/google')
+
+case 'google':
+case 'gimage':
+case 'gvideo':
+case 'tr':
+case 'gnews':
+case 'gsuggest':
+  return handleGoogleCase({ alip, m, text, args, command, isRegistered, isCreator, checkLimit, addLimit, Reply })
+```

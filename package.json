@@ -6,7 +6,7 @@
   "main": "case/instagram.js",
   "scripts": {
     "test": "node --test test/*.test.js",
-    "syntax": "node --check scraper/yt-dlp.js && node --check scraper/instagram.js && node --check scraper/youtube.js && node --check scraper/pinterest.js && node --check case/instagram.js && node --check case/youtube.js && node --check case/pinterest.js"
+    "syntax": "node --check scraper/yt-dlp.js && node --check scraper/instagram.js && node --check scraper/youtube.js && node --check scraper/pinterest.js && node --check case/instagram.js && node --check case/youtube.js && node --check case/pinterest.js && node --check scraper/google.js && node --check case/google.js"
   },
   "engines": {
     "node": ">=18"
